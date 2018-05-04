@@ -22,10 +22,17 @@ function react16Selector (selector, parents = rootEls) {
             return null;
 
         const currentElement = component.type ? component : component.memoizedState.element;
+        // Added magic prop "_reactSelectorName" to make it possible to use this with mangled component names
+        let foundMagicTestProp = '';
+
+        if (component.memoizedProps && component.memoizedProps._reactSelectorName)
+            foundMagicTestProp = component.memoizedProps._reactSelectorName;
+        else if (component.props && component.props._reactSelectorName)
+            foundMagicTestProp = component.props._reactSelectorName;
 
         //NOTE: tag
         if (typeof component.type === 'string') return component.type;
-        if (component.type.displayName || component.type.name) return component.type.displayName || component.type.name;
+        if (component.type.displayName || component.type.name) return foundMagicTestProp || component.type.displayName || component.type.name;
 
         const matches = currentElement.type.toString().match(/^function\s*([^\s(]+)/);
 
