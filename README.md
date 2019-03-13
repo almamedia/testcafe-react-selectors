@@ -8,6 +8,22 @@ This plugin provides selector extensions that make it easier to test ReactJS com
 
 ## Usage
 
+### Wait for application to be ready to run tests
+
+To wait until the React's component tree is loaded, add the `waitForReact` method to fixture's `beforeEach` hook.
+
+```js
+import { waitForReact } from 'testcafe-react-selectors';
+
+fixture `App tests`
+    .page('http://react-app-url')
+    .beforeEach(async () => {
+        await waitForReact();
+    });
+```
+
+Default timeout for `waitForReact` is `10000` ms. You can specify a custom timeout value - `waitForReact(5000)`.
+
 ### Creating selectors for ReactJS components
 
 `ReactSelector` allows you to select page elements by the name of the component class or the nested component element.
@@ -18,8 +34,8 @@ Suppose you have the following JSX.
 <TodoApp className="todo-app">
     <TodoInput />
     <TodoList>
-        <TodoItem priority="High">Item 1</TodoItem>
-        <TodoItem priority="Low">Item 2</TodoItem>
+        <TodoItem priority="High" key="HighPriority">Item 1</TodoItem>
+        <TodoItem priority="Low" key="LowPriority">Item 2</TodoItem>
     </TodoList>
 
     <div className="items-count">Items count: <span>{this.state.itemCount}</span></div>
@@ -50,6 +66,16 @@ const itemsCount       = ReactSelector('TodoApp div span');
 
 Warning: if you specify a DOM element's tag name, React selectors search for the element among the component's children without looking into nested components. For instance, for the JSX above the `ReactSelector('TodoApp div')` selector will be equal to `Selector('.todo-app > div')`.
 
+#### Selecting components by the component key
+
+To obtain a component by its key, use the `withKey` method. 
+
+```js
+import { ReactSelector } from 'testcafe-react-selectors';
+
+const item = ReactSelector('TodoItem').withKey('HighPriority');
+```
+
 #### Selecting components by property values
 
 React selectors allow you to select elements that have a specific property value. To do this, use the `withProps` method. You can pass the property and its value as two parameters or an object.
@@ -70,6 +96,95 @@ const element = ReactSelector('componentName').withProps({
     propName: 'value',
     anotherPropName: 'differentValue'
 });
+```
+
+##### Properties whose values are objects
+
+React selectors allow you to filter components by properties whose values are objects.
+
+When the `withProps` function filters properties, it determines whether the objects (property values) are strictly or partially equal.
+
+The following example illustrates strict and partial equality.
+
+```js
+object1 = {
+    field1: 1
+}
+object2 = {
+    field1: 1
+}
+object3 = {
+    field1: 1
+    field2: 2
+}
+object4 = {
+    field1: 3
+    field2: 2
+}
+```
+
+* `object1` strictly equals `object2`
+* `object2` partially equals `object3`
+* `object2` does not equal `object4`
+* `object3` does not equal `object4`
+
+Prior to version 3.0.0, `withProps` checked if objects are strictly equal when comparing them. Since 3.0.0, `withProps` checks for partial equality. To test objects for strict equality, specify the `exactObjectMatch` option.
+
+The following example returns the `componentName` component because the `objProp` property values are strictly equal and `exactObjectMatch` is set to true.
+
+```js
+// props = {
+//   simpleProp: 'value',
+//   objProp: {
+//       field1: 'value',
+//       field2: 'value'
+//   }
+// }
+
+const element = ReactSelector('componentName').withProps({
+    simpleProp: 'value',
+    objProp: {
+        field1: 'value',
+        field2: 'value'
+    }
+}, { exactObjectMatch: true })
+```
+
+Note that the partial equality check works for objects of any depth.
+
+```js
+// props = {
+//     simpleProp: 'value',
+//     objProp: {
+//         field1: 'value',
+//         field2: 'value',
+//         nested1: {
+//             someField: 'someValue',
+//             nested2: {
+//                 someField: 'someValue',
+//                 nested3: {
+//                     field: 'value',
+//                     someField: 'someValue'
+//                 }
+//             }
+//         }
+//     }
+// }
+
+
+const element = ReactSelector('componentName').withProps({
+    simpleProp: 'value',
+    objProp: {
+        field1: 'value',
+        nested1: {
+            nested2: {
+                nested3: {
+                    field: 'value'
+                }
+            }
+        }
+    }
+}, { exactObjectMatch: false })
 ```
 
 #### Searching for nested components
@@ -148,11 +263,11 @@ test('Add new task', async t => {
 
 ### Obtaining component's props and state
 
-As an alternative to [testcafe snapshot properties](http://devexpress.github.io/testcafe/documentation/test-api/selecting-page-elements/dom-node-state.html), you can obtain `state` or `props` of a ReactJS component.
+As an alternative to [testcafe snapshot properties](http://devexpress.github.io/testcafe/documentation/test-api/selecting-page-elements/dom-node-state.html), you can obtain `state`, `props` or `key` of a ReactJS component.
 
-To obtain component properties and state, use the React selector's `.getReact()` method.
+To obtain component's properties, state and key, use the React selector's `.getReact()` method.
 
-The `.getReact()` method returns a [client function](https://devexpress.github.io/testcafe/documentation/test-api/obtaining-data-from-the-client.html). This function resolves to an object that contains component's properties (excluding properties of its `children`) and state.
+The `.getReact()` method returns a [client function](https://devexpress.github.io/testcafe/documentation/test-api/obtaining-data-from-the-client.html). This function resolves to an object that contains component's properties (excluding properties of its `children`), state and key.
 
 ```js
 const reactComponent      = ReactSelector('MyComponent');
@@ -162,7 +277,8 @@ const reactComponentState = await reactComponent.getReact();
 //
 // {
 //     props:    <component_props>,
-//     state:    <component_state>
+//     state:    <component_state>,
+//     key:      <component_key>
 // }
 ```
 
@@ -182,13 +298,14 @@ test('Check list item', async t => {
 
     await t.expect(component.props.priority).eql('High');
     await t.expect(component.state.isActive).eql(false);
+    await t.expect(component.key).eql('componentID');
 });
 ```
 
-As an alternative, the `.getReact()` method can take a function that returns the required property or state. This function acts as a filter. Its argument is an object returned by `.getReact()`, i.e. `{ props: ..., state: ...}`.
+As an alternative, the `.getReact()` method can take a function that returns the required property, state or key. This function acts as a filter. Its argument is an object returned by `.getReact()`, i.e. `{ props: ..., state: ..., key: ...}`.
 
 ```js
-ReactSelector('Component').getReact(({ props, state }) => {...})
+ReactSelector('Component').getReact(({ props, state, key }) => {...})
 ```
 
 **Example**
@@ -204,11 +321,78 @@ test('Check list item', async t => {
 
     await t
         .expect(el.getReact(({ props }) => props.priority)).eql('High')
-        .expect(el.getReact(({ state }) => state.isActive)).eql(false);
+        .expect(el.getReact(({ state }) => state.isActive)).eql(false)
+        .expect(el.getReact(({ key }) => key)).eql('componentID');
 });
 ```
 
 The `.getReact()` method can be called for the `ReactSelector` or the snapshot this selector returns.
+
+### TypeScript Generic Selector
+
+Use the generic `ReactComponent` type to create scalable selectors in TypeScript.
+
+Pass the `props` object as the type argument to `ReactComponent` to introduce a type for a specific component.
+
+```ts
+type TodoItem = ReactComponent<{ id: string }>;
+```
+
+You can then pass the created `TodoItem` type to the `withProps` and `getReact` generic methods.
+
+```ts
+const component  = ReactSelector('TodoItem');
+type TodoItem    = ReactComponent<{ id: string }>;
+
+const item1  = component.withProps<TodoItem>('id', 'tdi-1');
+const itemId = component.getReact<TodoItem>(({ props }) => props.id);
+```
+
+**Example**
+
+``` ts
+import { ReactSelector, ReactComponent } from 'testcafe-react-selectors';
+
+fixture`typescript support`
+    .page('http://react-page-example.com')
+
+test('ReactComponent', async t => {
+    const todoList         = ReactSelector('TodoList');
+    type TodoListComponent = ReactComponent<{ id: string }>;
+
+    const todoListId = todoList.getReact<TodoListComponent>(({ props }) => props.id);
+
+    await t.expect(todoListId).eql('ul-item');
+});
+```
+
+#### Composite Types in Props and State
+
+If a component's props and state include other composite types, you can create your own type definitions for them. Then pass these definitions to `ReactComponent` as type arguments.
+
+The following example shows custom `Props` and `State` type definitions. The `State` type uses another composite type - `Option`.
+
+``` ts
+import { ReactComponent } from 'testcafe-react-selectors';
+
+interface Props {
+    id: string;
+    text: string;
+}
+
+interface Option {
+    id: number;
+    title: string;
+    description: string;
+}
+
+interface State {
+    optionsCount: number;
+    options: Option[];
+}
+
+export type OptionReactComponent = ReactComponent<Props, State>;
+```
 
 ### Limitations
 

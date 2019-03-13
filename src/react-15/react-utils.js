@@ -28,7 +28,7 @@
 
             while (renderedComponent) {
                 if (componentName === utils.getName(renderedComponent))
-                    componentInstance = renderedComponent._instance;
+                    componentInstance = renderedComponent._instance || renderedComponent._currentElement;
 
                 if (renderedComponent._domID === component._domID)
                     return componentInstance;
@@ -65,10 +65,16 @@
         }
     }
 
+    function getComponentKey (component) {
+        const currentElement = component._reactInternalInstance ? component._reactInternalInstance._currentElement : component;
+
+        return currentElement.key;
+    }
+
     /*eslint-disable no-unused-vars*/
     function getReact (node, fn) {
         /*eslint-enable no-unused-vars*/
-        var componentInstance = getComponentForDOMNode(node);
+        const componentInstance = getComponentForDOMNode(node);
 
         if (!componentInstance) return null;
 
@@ -77,13 +83,15 @@
         if (typeof fn === 'function') {
             return fn({
                 state: copyReactObject(componentInstance.state),
-                props: copyReactObject(componentInstance.props)
+                props: copyReactObject(componentInstance.props),
+                key:   getComponentKey(componentInstance)
             });
         }
 
         return {
             state: copyReactObject(componentInstance.state),
-            props: copyReactObject(componentInstance.props)
+            props: copyReactObject(componentInstance.props),
+            key:   getComponentKey(componentInstance)
         };
     }
 
@@ -91,6 +99,39 @@
         return window['%testCafeReactFoundComponents%'].map(desc => desc.component);
     }
 
-    return { getReact, getComponentForDOMNode, getFoundComponentInstances };
+    function scanDOMNodeForReactComponent (el) {
+        if (!el || !(el.nodeType === ELEMENT_NODE || el.nodeType === COMMENT_NODE))
+            return null;
+
+        let component = null;
+
+        for (const prop of Object.keys(el)) {
+            if (!/^__reactInternalInstance/.test(prop))
+                continue;
+
+            component = el[prop];
+
+            break;
+        }
+
+        if (!component) return null;
+
+        const parent = component._hostParent;
+
+        if (!parent) return component;
+
+        const renderedChildren     = parent._renderedChildren;
+        const renderedChildrenKeys = Object.keys(renderedChildren);
+
+        const currentElementId = renderedChildrenKeys.filter(key => {
+            const renderedComponent = renderedChildren[key];
+
+            return renderedComponent && renderedComponent.getHostNode() === el;
+        })[0];
+
+        return renderedChildren[currentElementId];
+    }
+
+    return { getReact, getComponentForDOMNode, scanDOMNodeForReactComponent, getFoundComponentInstances, getComponentKey };
 })();
 

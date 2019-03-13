@@ -1,6 +1,6 @@
 {
   "name": "testcafe-react-selectors",
-  "version": "2.0.0",
+  "version": "3.1.0",
   "description": "ReactJS selectors for TestCafe",
   "repository": "https://github.com/DevExpress/testcafe-react-selectors",
   "main": "lib/index",
@@ -46,7 +46,7 @@
     "plugin"
   ],
   "peerDependencies": {
-    "testcafe": "^0.19.1"
+    "testcafe": ">0.19.1"
   },
   "types": "./ts-defs/index.d.ts"
 }
