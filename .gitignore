@@ -51,3 +51,6 @@ node_modules/*
 lib/*
 test/data/lib/*
 package-lock.json
+tags
+tags.lock
+tags.temp
