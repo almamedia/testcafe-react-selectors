@@ -48,7 +48,6 @@ Temporary Items
 
 node_modules/*
 .idea/*
-lib/*
 test/data/lib/*
 package-lock.json
 tags
