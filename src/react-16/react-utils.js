@@ -1,4 +1,4 @@
-/*global window*/
+/*global window Node*/
 (function () {
     const ELEMENT_NODE = 1;
     const COMMENT_NODE = 8;
@@ -27,14 +27,11 @@
         else if (window['%testCafeReactFoundComponents%'].length)
             component = window['%testCafeReactFoundComponents%'].filter(desc => desc.node === el)[0].component;
 
-        const isTag = typeof component.type === 'string';
-
-        if (isTag) return null;
-
         const props = component.stateNode && component.stateNode.props || component.memoizedProps;
         const state = component.stateNode && component.stateNode.state || component.memoizedState;
+        const key   = component.key;
 
-        return { props, state };
+        return { props, state, key };
     }
 
     /*eslint-enable no-unused-vars*/
@@ -51,19 +48,73 @@
         if (typeof fn === 'function') {
             return fn({
                 state: copyReactObject(componentInstance.state),
-                props: copyReactObject(componentInstance.props)
+                props: copyReactObject(componentInstance.props),
+                key:   componentInstance.key
             });
         }
 
         return {
             state: copyReactObject(componentInstance.state),
-            props: copyReactObject(componentInstance.props)
+            props: copyReactObject(componentInstance.props),
+            key:   componentInstance.key
         };
+    }
+
+    function scanDOMNodeForReactInstance (el) {
+        if (!el || !(el.nodeType === ELEMENT_NODE || el.nodeType === COMMENT_NODE)) return null;
+
+        if (el.nodeType === COMMENT_NODE)
+            return el.__$$reactInstance.return.child;
+
+        for (var prop of Object.keys(el)) {
+            if (!/^__reactInternalInstance/.test(prop)) continue;
+
+            let nestedComponent = el[prop];
+
+            if (typeof nestedComponent.type !== 'string')
+                return nestedComponent;
+
+            let parentComponent = nestedComponent;
+
+            do {
+                nestedComponent = parentComponent;
+                parentComponent = nestedComponent.return;
+            } while (parentComponent && parentComponent.type && !(parentComponent.stateNode instanceof Node));
+
+            return nestedComponent;
+        }
+
+        return null;
+    }
+
+    function getRenderedComponentVersion (component, rootInstances) {
+        if (!component.alternate) return component;
+
+        let component1 = component;
+        let component2 = component.alternate;
+
+        while (component1.return) component1 = component1.return;
+        while (component2.return) component2 = component2.return;
+
+        if (rootInstances.indexOf(component1) > -1) return component;
+
+        return component.alternate;
+    }
+
+    function scanDOMNodeForReactComponent (domNode) {
+        const rootInstances = window['$testCafeReact16Roots'].map(rootEl => rootEl.return || rootEl);
+        const reactInstance = scanDOMNodeForReactInstance(domNode);
+
+        return getRenderedComponentVersion(reactInstance, rootInstances);
     }
 
     function getFoundComponentInstances () {
         return window['%testCafeReactFoundComponents%'].map(desc => desc.component);
     }
 
-    return { getReact, getComponentForDOMNode, getFoundComponentInstances };
+    function getComponentKey (instance) {
+        return instance.key;
+    }
+
+    return { getReact, getComponentForDOMNode, scanDOMNodeForReactComponent, getFoundComponentInstances, getComponentKey };
 })();

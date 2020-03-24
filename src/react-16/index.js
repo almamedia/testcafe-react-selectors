@@ -18,6 +18,11 @@ function react16Selector (selector, parents = rootEls) {
     }
 
     function getName (component) {
+        //react memo
+        // it will find the displayName on the elementType if you set it
+        if (component.elementType && component.elementType.displayName) return component.elementType.displayName;
+        
+        
         if (!component.type && !component.memoizedState)
             return null;
 
@@ -148,7 +153,8 @@ function react16Selector (selector, parents = rootEls) {
                 if (selectorElms[selectorIndex] !== componentName) return false;
 
                 if (selectorIndex === selectorElms.length - 1) {
-                    foundComponents.push(domNode || createAnnotationForEmptyComponent(reactComponent));
+                    if (foundComponents.indexOf(domNode) === -1)
+                        foundComponents.push(domNode || createAnnotationForEmptyComponent(reactComponent));
 
                     window['%testCafeReactFoundComponents%'].push({ node: domNode, component: reactComponent });
                 }

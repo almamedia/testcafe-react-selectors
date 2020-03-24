@@ -9,7 +9,7 @@ class ListItem extends React.Component {
     }
 
     render () {
-        return <li id={this.props.id}><p>{this.props.id} text</p></li>;
+        return <li id={this.props.id}><p key={`${this.props.id}-p`}>{this.props.id} text</p></li>;
     }
 }
 
@@ -29,9 +29,10 @@ class List extends React.Component {
     render () {
         return (
             <div>
+                List: {this.props.id}
                 <ul id="list" onClick={this._onClick}>
-                    <ListItem id={this.props.id + '-item1'} selected={this.state.isActive}/>
-                    <ListItem id={this.props.id + '-item2'}/>
+                    <ListItem id={this.props.id + '-item1'} selected={this.state.isActive} key="ListItem1"/>
+                    <ListItem id={this.props.id + '-item2'} key="ListItem2"/>
                     <ListItem id={this.props.id + '-item3'}/>
                 </ul>
             </div>
@@ -193,7 +194,9 @@ class SmartComponent extends React.Component {
     }
 
     _onClick () {
-        this.setState({ text: 'Enabled' });
+        const newText = this.state.text === 'Enabled' ? 'Disabled' : 'Enabled';
+
+        this.setState({ text: newText });
     }
 
     render () {
@@ -205,10 +208,6 @@ const SetItemLabel = ({ text }) => <span> {text} </span>;
 const SetItem      = ({ text }) => text ? <SetItemLabel text={text}/> : null;
 
 class UnfilteredSet extends React.Component {
-    constructor () {
-        super();
-    }
-
     render () {
         return (<div>
             <SetItem prop1={true} text="SetItem1"/>
@@ -219,6 +218,47 @@ class UnfilteredSet extends React.Component {
         </div>);
     }
 }
+
+class UnfilteredSet_PartialMatching extends React.Component {
+    render () {
+        const prop1_1 = {
+            obj: {
+                field1: 1,
+                field2: 2,
+                field3: {
+                    subField1: 1,
+                    subField2: 2
+                }
+            }
+        };
+
+        const prop1_2 = {
+            obj: {
+                field1: 1,
+                field2: 0,
+                field3: {
+                    subField1: 1,
+                    subField2: 0
+                }
+            }
+        };
+
+        return (<div>
+            <SetItem prop1={prop1_1}/>
+            <SetItem prop1={prop1_1}/>
+            <SetItem prop1={prop1_2}/>
+        </div>);
+    }
+}
+
+const NestedApp = function NestedApp () {
+    return <Stateless1 text="Inside nested app"/>;
+};
+
+const ToMemoize = ({ text }) => <div>{text}</div>;
+const Memoized = React.memo ? React.memo(ToMemoize) : ToMemoize;
+
+Memoized.displayName = 'Memoized';
 
 class App extends React.Component {
     constructor () {
@@ -246,7 +286,7 @@ class App extends React.Component {
                 <EmptyComponent/>
                 <PureComponent/>
 
-                <Portal/>
+                <Portal key="portal"/>
                 <PortalWithPureComponent/>
 
                 <Stateless1 text="test"/>
@@ -254,14 +294,18 @@ class App extends React.Component {
                 <Stateless3 text="test"/>
                 <Stateless4/>
 
-                <PortalReact16/>
+                <PortalReact16 key="portalReact16"/>
 
                 <SmartComponent/>
                 <UnfilteredSet/>
+                <UnfilteredSet_PartialMatching/>
+                <Memoized text="Memo" />
+                <div id="nestedapp-container"></div>
             </div>
         );
     }
 }
 
 ReactDOM.render(React.createElement(App, { label: 'AppLabel' }), document.getElementById('app-container'));
+ReactDOM.render(React.createElement(NestedApp, { label: 'NestedAppLabel' }), document.getElementById('nestedapp-container'));
 
